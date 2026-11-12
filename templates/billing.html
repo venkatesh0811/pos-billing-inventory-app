@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>New Bill</h2>
+<div class="row">
+  <select id="product"></select>
+  <input id="qty" type="number" min="1" value="1" style="width:80px">
+  <button id="addBtn">Add to bill</button>
+</div>
+<div id="error" class="msg error" style="display:none"></div>
+<div class="scroll">
+<table id="cart">
+  <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+  <tbody></tbody>
+</table>
+</div>
+<h3>Grand total: <span id="grand">0.00</span></h3>
+<button id="saveBtn">Generate invoice</button>
+
+<script>
+let products = [];   // loaded from the API
+let cart = [];       // [{product, qty}]
+
+async function loadProducts() {
+  const res = await fetch("/api/products");
+  products = await res.json();
+  const sel = document.getElementById("product");
+  sel.innerHTML = products.map(p => `<option value="${p.id}">${p.name} - ${p.price.toFixed(2)} (stock ${p.stock})</option>`).join("");
+}
+
+function showError(msg) {
+  const e = document.getElementById("error");
+  e.textContent = msg; e.style.display = msg ? "block" : "none";
+}
+
+function render() {
+  const body = document.querySelector("#cart tbody");
+  let grand = 0;
+  body.innerHTML = cart.map((c, i) => {
+    const t = c.qty * c.product.price; grand += t;
+    return `<tr><td>${c.product.name}</td><td>${c.qty}</td><td>${c.product.price.toFixed(2)}</td>
+            <td>${t.toFixed(2)}</td><td><button class="danger" onclick="removeItem(${i})">Remove</button></td></tr>`;
+  }).join("");
+  document.getElementById("grand").textContent = grand.toFixed(2);
+}
+
+function removeItem(i) { cart.splice(i, 1); render(); }
+
+document.getElementById("addBtn").onclick = () => {
+  showError("");
+  const id = Number(document.getElementById("product").value);
+  const qty = parseInt(document.getElementById("qty").value, 10);
+  const product = products.find(p => p.id === id);
+  if (!product || !(qty > 0)) return showError("Choose a product and a valid quantity.");
+  const existing = cart.find(c => c.product.id === id);
+  const newQty = (existing ? existing.qty : 0) + qty;
+  if (newQty > product.stock) return showError(`Only ${product.stock} in stock.`);
+  if (existing) existing.qty = newQty; else cart.push({product, qty});
+  render();
+};
+
+document.getElementById("saveBtn").onclick = async () => {
+  showError("");
+  const res = await fetch("/api/invoices", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({items: cart.map(c => ({product_id: c.product.id, qty: c.qty}))})
+  });
+  const data = await res.json();
+  if (!res.ok) return showError(data.error);
+  window.location = "/invoices/" + data.invoice_id;
+};
+
+loadProducts();
+</script>
+{% endblock %}

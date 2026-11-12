@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Invoice INV-{{ inv.id }}</h2>
+<p>{{ inv.created_at }}</p>
+<div class="scroll">
+<table>
+  <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+  {% for it in items %}
+  <tr><td>{{ it.name }}</td><td>{{ it.qty }}</td><td>{{ "%.2f"|format(it.price) }}</td><td>{{ "%.2f"|format(it.line_total) }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+<h3>Grand total: {{ "%.2f"|format(inv.total) }}</h3>
+<button onclick="window.print()">Print</button>
+{% endblock %}
